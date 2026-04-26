@@ -1,0 +1,292 @@
+import type React from 'react'
+
+export type LocaleMap = Record<string, string>
+
+export type PluginScope =
+  | 'camera.read'
+  | 'robot.calibration'
+  | 'robot.config'
+  | 'robot.control'
+  | 'robot.read'
+  | 'user.auth'
+  | 'user.profile'
+
+export interface PluginManifest {
+  /** SDK major version this plugin targets. */
+  sdkVersion: '1'
+  /** Lowercase, URL-safe vendor identifier. */
+  vendor: string
+  /** Lowercase, URL-safe tool identifier, unique within the vendor namespace. */
+  slug: string
+  /** Display name — at least 'en' is required. */
+  name: LocaleMap
+  /** Short description shown in the marketplace listing — at least 'en' is required. */
+  description: LocaleMap
+  /** Lucide icon name or inline SVG string. */
+  icon: string
+  /** Capabilities the plugin requires. Empty means UI-only (no hardware access). */
+  scopes: PluginScope[]
+}
+
+// --- Calibration ---
+
+export interface JointCalibration {
+  rawMin: number
+  rawMax: number
+  urdfMin: number
+  urdfMax: number
+}
+
+export interface CalibrationData {
+  version: number
+  motors: Record<number, JointCalibration>
+}
+
+// --- WorldView ---
+
+export interface JointInfo {
+  name: string
+  label: string
+  /** 'revolute' | 'prismatic' | 'continuous' at runtime. */
+  type: string
+  lower: number
+  upper: number
+}
+
+/** Plain 3D vector. At runtime the host may return THREE.Vector3, which satisfies this structurally. */
+export interface Vector3 {
+  x: number
+  y: number
+  z: number
+}
+
+export interface WorldViewApi {
+  setJoint(name: string, value: number): void
+  resetJoints(smooth?: boolean): void
+  getJoints(): JointInfo[]
+  setTargetPosition(pos: [number, number, number]): void
+  setRobotOpacity(opacity: number): void
+  setLinkHighlight(highlightLinkNames: string[], foreground: number, background: number): void
+  getJointWorldPosition(name: string): Vector3 | null
+  getJointWorldAxis(name: string): Vector3 | null
+}
+
+/**
+ * WorldView props available to plugins. The host automatically injects the
+ * robot configuration for the active connection — plugins do not pass robotConfig.
+ */
+export interface PluginWorldViewProps {
+  cameraDistanceScale?: number
+  ghostJoints?: Record<string, number>[]
+  motionMode?: 'instant' | 'realistic'
+  onLoad?: (joints: JointInfo[]) => void
+  onLoadProgress?: (loaded: number, total: number) => void
+  onTargetMove?: (pos: [number, number, number]) => void
+  showTargetSphere?: boolean
+  targetPosition?: [number, number, number]
+  trackLivePosition?: boolean
+}
+
+// --- UI component props ---
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean
+  size?: 'default' | 'icon' | 'lg' | 'sm'
+  variant?: 'default' | 'destructive' | 'ghost' | 'link' | 'outline' | 'secondary'
+}
+
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>
+
+export type CardProps = React.HTMLAttributes<HTMLDivElement>
+
+// --- Robot config subset exposed to plugins ---
+
+export interface PluginRobotConfig {
+  modelId: string
+  /** Maps URDF joint name to motor servo ID. */
+  jointServoId: Record<string, number>
+  /** Maps motor servo ID to neutral (home) encoder position (0–4095). */
+  servoNeutral: Record<number, number>
+  /** Convert raw encoder value (0–4095) to URDF joint value (rad for revolute, m for prismatic). */
+  encoderToJoint: (id: number, encoder: number) => number
+  /** Convert URDF joint value (rad for revolute, m for prismatic) to raw encoder value (0–4095). */
+  jointToEncoder: (id: number, value: number) => number
+  /** Get the neutral URDF joint value for a servo. */
+  neutralJointValue: (id: number) => number
+}
+
+// --- Host services ---
+
+export interface PluginUser {
+  id: string
+  email: string
+  name: string
+  role: number
+}
+
+export interface PluginRobotModel {
+  id: string
+  label: string
+}
+
+// --- Plugin context ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyComponent = React.ComponentType<any>
+
+export interface PluginContext {
+  // --- Connection (always available) ---
+
+  connection: {
+    connected: boolean
+    robotId: string | null
+    robotModel: string | null
+    /** True when connected to the virtual (no-hardware) service. */
+    virtual: boolean
+  }
+
+  /** Opens the standard connect-a-robot dialog. */
+  openConnectDialog: () => void
+
+  // --- Servo API (methods are absent when the required scope is not declared) ---
+
+  servo: {
+    // robot.read ---------------------------------------------------------------
+
+    /** Read the raw encoder position (0–4095) of a single servo. */
+    readPosition: (id: number) => Promise<number>
+    /** Read `len` bytes from register `addr` on a servo. */
+    readRegisters: (id: number, addr: number, len: number) => Promise<number[]>
+    /**
+     * Read all joint positions in URDF units (rad for revolute, m for prismatic).
+     * Values are ordered by servo ID ascending. Returns null when disconnected.
+     */
+    readJointPositions: () => Promise<null | number[]>
+
+    // robot.control ------------------------------------------------------------
+
+    /** Move a single servo to a raw position (0–4095). Optional speed; 0 = maximum. */
+    setPosition: (id: number, position: number, speed?: number) => Promise<void>
+    /** Move multiple servos simultaneously via a single SYNC_WRITE broadcast. */
+    syncSetPositions: (positions: Array<{ id: number; position: number }>) => Promise<void>
+    /**
+     * Command joint positions in URDF units (rad for revolute, m for prismatic).
+     * Values must be ordered by servo ID ascending, matching readJointPositions output.
+     * No-op when disconnected or emergency-stopped.
+     */
+    setJointPositions: (positions: number[]) => Promise<void>
+    /** Broadcast a goal-speed limit to all servos; 0 = maximum speed. */
+    limitSpeed: (speed: number) => Promise<void>
+    /**
+     * Register this plugin as an active user of the emergency stop button.
+     * Call on mount; call the returned cleanup on unmount.
+     */
+    registerEmergencyStop: () => () => void
+
+    // robot.calibration --------------------------------------------------------
+
+    /** Enable or disable torque on a single servo. */
+    setTorque: (id: number, enabled: boolean) => Promise<void>
+    /** Broadcast torque-disable to all servos on the bus. */
+    disableTorque: () => Promise<void>
+    /**
+     * Calibrate homing offsets: clears stale EEPROM offsets, reads true encoder
+     * positions, then writes offset = neutral − raw. Torque must be disabled first.
+     */
+    calibrateNeutralPositions: (motors: Array<{ id: number; neutral: number }>) => Promise<void>
+
+    // robot.config -------------------------------------------------------------
+
+    /**
+     * Change the servo ID stored in EEPROM via broadcast.
+     * Only one servo must be connected on the bus when calling this.
+     */
+    setId: (newId: number) => Promise<void>
+  }
+
+  /**
+   * Robot configuration for the active connection.
+   * Null when no robot is connected or the model is unknown.
+   */
+  robotConfig: PluginRobotConfig | null
+
+  /** Persist neutral-position calibration data for the connected robot. */
+  saveCalibration: (data: CalibrationData) => Promise<void>
+
+  /**
+   * Persist full range-of-motion calibration (rawMin/rawMax per motor)
+   * for the connected robot.
+   */
+  saveRangeCalibration: (motors: Record<number, JointCalibration>) => Promise<void>
+
+  /**
+   * Show the standard safety-check dialog with the given message.
+   * Resolves to true when the user confirms, false when cancelled.
+   */
+  showSafetyWarning: () => Promise<boolean>
+
+  /**
+   * 3D robot visualization. The host injects the robot config automatically.
+   * Use a React ref typed as WorldViewApi to call imperative methods.
+   */
+  WorldView: React.ForwardRefExoticComponent<PluginWorldViewProps & React.RefAttributes<WorldViewApi>>
+
+  // --- Host services ---
+
+  /** Navigate to a host URL (wraps React Router navigate). */
+  navigate: (url: string) => void
+
+  /**
+   * Authenticated fetch. Pass a path starting with `/api/...`; the host
+   * prepends the API base URL and handles 502 / non-JSON error toasts.
+   */
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>
+
+  /** Currently signed-in user, or null when not authenticated. */
+  user: PluginUser | null
+
+  /** Available robot models. */
+  robotModels: PluginRobotModel[]
+
+  /** Show brief toast notifications. */
+  toast: {
+    success: (message: string) => void
+    error: (message: string) => void
+  }
+
+  /** Subset of the host UI component library. */
+  ui: {
+    Button: React.ComponentType<ButtonProps>
+    Card: React.ComponentType<CardProps>
+    Input: React.ComponentType<InputProps>
+    Dialog: AnyComponent
+    DialogContent: AnyComponent
+    DialogDescription: AnyComponent
+    DialogFooter: AnyComponent
+    DialogHeader: AnyComponent
+    DialogTitle: AnyComponent
+    Separator: AnyComponent
+    Skeleton: AnyComponent
+    Table: AnyComponent
+    TableBody: AnyComponent
+    TableCell: AnyComponent
+    TableHead: AnyComponent
+    TableHeader: AnyComponent
+    TableRow: AnyComponent
+    Tooltip: AnyComponent
+    TooltipContent: AnyComponent
+    TooltipProvider: AnyComponent
+    TooltipTrigger: AnyComponent
+  }
+
+  // --- i18n ---
+
+  /** Active locale code (e.g. 'en', 'ru'). Changes when the user switches language. */
+  locale: string
+
+  /**
+   * Resolve a localized string from a locale map.
+   * Falls back to 'en' when the active locale is absent.
+   */
+  localize: (map: Record<string, string>) => string
+}
