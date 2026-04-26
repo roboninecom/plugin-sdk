@@ -3,13 +3,28 @@ import type React from 'react'
 export type LocaleMap = Record<string, string>
 
 export type PluginScope =
+  /** Access the camera feed (future). */
   | 'camera.read'
+  /** Control torque, write homing offsets to motor EEPROM, and persist calibration data to the backend API. */
   | 'robot.calibration'
+  /** Write low-level servo config (e.g. servo ID). Destructive — only one servo may be on the bus. */
   | 'robot.config'
+  /** Send position commands and control speed. Implies robot.read. */
   | 'robot.control'
+  /** Access a second robot connection in the 'leader' role for dual-arm setups. */
+  | 'robot.leader'
+  /** Read raw servo positions and registers. */
   | 'robot.read'
+  /** Require the user to be signed in before the plugin loads. */
   | 'user.auth'
+  /** Read basic user profile (name, email). */
   | 'user.profile'
+
+/**
+ * Named connection slot. 'default' is always the primary (follower) arm.
+ * 'leader' is available when the plugin declares the 'robot.leader' scope.
+ */
+export type ConnectionRole = 'default' | 'leader'
 
 export interface PluginManifest {
   /** SDK major version this plugin targets. */
@@ -129,13 +144,11 @@ export interface PluginRobotModel {
   label: string
 }
 
-// --- Plugin context ---
+// --- Robot handle ---
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyComponent = React.ComponentType<any>
-
-export interface PluginContext {
-  // --- Connection (always available) ---
+/** All APIs scoped to a single robot connection. */
+export interface RobotHandle {
+  // --- Connection state ---
 
   connection: {
     connected: boolean
@@ -145,7 +158,7 @@ export interface PluginContext {
     virtual: boolean
   }
 
-  /** Opens the standard connect-a-robot dialog. */
+  /** Opens the standard connect-a-robot dialog for this role. */
   openConnectDialog: () => void
 
   // --- Servo API (methods are absent when the required scope is not declared) ---
@@ -205,7 +218,7 @@ export interface PluginContext {
   }
 
   /**
-   * Robot configuration for the active connection.
+   * Robot configuration for this connection.
    * Null when no robot is connected or the model is unknown.
    */
   robotConfig: PluginRobotConfig | null
@@ -220,10 +233,41 @@ export interface PluginContext {
   saveRangeCalibration: (motors: Record<number, JointCalibration>) => Promise<void>
 
   /**
-   * Show the standard safety-check dialog with the given message.
+   * Show the standard safety-check dialog.
    * Resolves to true when the user confirms, false when cancelled.
    */
   showSafetyWarning: () => Promise<boolean>
+}
+
+// --- Plugin context ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyComponent = React.ComponentType<any>
+
+export interface PluginContext {
+  /**
+   * Access a robot connection by role. Always available regardless of scopes.
+   *
+   * - `robot('default')` — the primary (follower) arm, present for any plugin that
+   *   uses a `robot.*` scope.
+   * - `robot('leader')` — the leader arm; requires the `robot.leader` scope. The host
+   *   prompts for both connections before loading the plugin when this scope is declared.
+   *
+   * The top-level `connection`, `servo`, `robotConfig`, `openConnectDialog`,
+   * `saveCalibration`, `saveRangeCalibration`, and `showSafetyWarning` fields are
+   * shorthands for `robot('default')` and are kept for single-arm plugin convenience.
+   */
+  robot: (role: ConnectionRole) => RobotHandle
+
+  // --- Shorthands for robot('default') ---
+
+  connection: RobotHandle['connection']
+  openConnectDialog: RobotHandle['openConnectDialog']
+  servo: RobotHandle['servo']
+  robotConfig: RobotHandle['robotConfig']
+  saveCalibration: RobotHandle['saveCalibration']
+  saveRangeCalibration: RobotHandle['saveRangeCalibration']
+  showSafetyWarning: RobotHandle['showSafetyWarning']
 
   /**
    * 3D robot visualization. The host injects the robot config automatically.
