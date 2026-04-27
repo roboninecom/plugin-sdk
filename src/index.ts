@@ -13,6 +13,12 @@ export type PluginScope =
   | 'robot.control'
   /** Access a second robot connection in the 'leader' role for dual-arm setups. */
   | 'robot.leader'
+  /**
+   * Declare that this plugin requires physical presence — the operator must be able to
+   * manually position the arm (e.g. calibration workflows). When this scope is present,
+   * the WebRTC transport option is grayed out in the connect dialog with an explanation.
+   */
+  | 'robot.local'
   /** Read raw servo positions and registers. */
   | 'robot.read'
   /** Require the user to be signed in before the plugin loads. */
@@ -156,6 +162,8 @@ export interface RobotHandle {
     robotModel: string | null
     /** True when connected to the virtual (no-hardware) service. */
     virtual: boolean
+    /** True when connected via WebRTC to a remote robot. */
+    remote: boolean
   }
 
   /** Opens the standard connect-a-robot dialog for this role. */
