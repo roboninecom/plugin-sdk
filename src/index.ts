@@ -348,15 +348,6 @@ export interface PluginContext {
    */
   cameras: CameraHandle[]
 
-  /**
-   * Open a browser camera picker and add the selected stream to the platform
-   * registry. Only available when `camera.read` is declared and the connection
-   * is not a remote (WebRTC) session — remote operators receive camera feeds
-   * from the host, not their own device.
-   * Resolves when the camera is added, or rejects if the user denies permission.
-   */
-  addLocalCamera: (() => Promise<void>) | null
-
   /** Active locale code (e.g. 'en', 'ru'). Changes when the user switches language. */
   locale: string
 
