@@ -136,6 +136,15 @@ export interface PluginRobotConfig {
   neutralJointValue: (id: number) => number
 }
 
+// --- Camera ---
+
+export interface CameraHandle {
+  id: string
+  label: string
+  source: 'local' | 'remote'
+  stream: MediaStream
+}
+
 // --- Host services ---
 
 export interface PluginUser {
@@ -332,6 +341,21 @@ export interface PluginContext {
   }
 
   // --- i18n ---
+
+  /**
+   * Available cameras from the platform registry.
+   * Requires the `camera.read` scope; empty array when not declared.
+   */
+  cameras: CameraHandle[]
+
+  /**
+   * Open a browser camera picker and add the selected stream to the platform
+   * registry. Only available when `camera.read` is declared and the connection
+   * is not a remote (WebRTC) session — remote operators receive camera feeds
+   * from the host, not their own device.
+   * Resolves when the camera is added, or rejects if the user denies permission.
+   */
+  addLocalCamera: (() => Promise<void>) | null
 
   /** Active locale code (e.g. 'en', 'ru'). Changes when the user switches language. */
   locale: string
