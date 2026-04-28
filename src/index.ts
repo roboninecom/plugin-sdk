@@ -5,6 +5,12 @@ export type LocaleMap = Record<string, string>
 export type PluginScope =
   /** Access the camera feed (future). */
   | 'camera.read'
+  /**
+   * Mark this plugin as installable — it can be installed by users and loaded on app start.
+   * Installable plugins may export a `PluginService` factory to run as a background service
+   * and expose an API to other plugins via `context.service(providerId)`.
+   */
+  | 'install'
   /** Control torque, write homing offsets to motor EEPROM, and persist calibration data to the backend API. */
   | 'robot.calibration'
   /** Write low-level servo config (e.g. servo ID). Destructive — only one servo may be on the bus. */
@@ -47,6 +53,17 @@ export interface PluginManifest {
   icon: string
   /** Capabilities the plugin requires. Empty means UI-only (no hardware access). */
   scopes: PluginScope[]
+  /**
+   * Service identifier this plugin registers when installed.
+   * Other plugins reference this string in `dependencies` and call `context.service(provides)`.
+   * Only meaningful when `scopes` includes `'install'` and the plugin exports `PluginService`.
+   */
+  provides?: string
+  /**
+   * Other plugins that must be installed and running before this plugin is initialised.
+   * Each entry must match the `vendor`/`slug` of an installed plugin that exports a service.
+   */
+  dependencies?: Array<{ vendor: string; slug: string }>
 }
 
 // --- Calibration ---
@@ -106,6 +123,8 @@ export interface PluginWorldViewProps {
   showTargetSphere?: boolean
   targetPosition?: [number, number, number]
   trackLivePosition?: boolean
+  /** Auto-solve IK when the target sphere is dragged. Requires a trained IK model on the robot config. */
+  autoSolveIK?: boolean
 }
 
 // --- UI component props ---
@@ -256,6 +275,58 @@ export interface RobotHandle {
   showSafetyWarning: () => Promise<boolean>
 }
 
+// --- Kinematics ---
+
+export interface FKResult {
+  /** End-effector position in metres (URDF world frame). */
+  position: [number, number, number]
+  /** 3×3 rotation matrix (row-major). */
+  rotation: [[number, number, number], [number, number, number], [number, number, number]]
+}
+
+export interface KinematicsApi {
+  /**
+   * Compute forward kinematics for the active robot.
+   * `angles` maps URDF joint names to values (rad for revolute, m for prismatic).
+   * Only joints present in the map are moved; others stay at 0.
+   */
+  forwardKinematics(angles: Record<string, number>): Promise<FKResult>
+
+  /**
+   * Solve inverse kinematics for the given target position (metres, URDF frame).
+   * `currentAngles` seeds the solver; defaults to all-zero if omitted.
+   * Returns null when no IK model is available for the active robot.
+   */
+  inverseKinematics(targetPosition: [number, number, number], currentAngles?: Record<string, number>): Promise<Record<string, number> | null>
+}
+
+// --- Plugin service ---
+
+/**
+ * Minimal context passed to `PluginServiceFactory`.
+ * Services run in the background and do not have access to UI or robot connections.
+ */
+export interface PluginServiceContext {
+  /** Authenticated fetch. Pass a path starting with `/api/...`. */
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>
+  /** Currently signed-in user, or null when not authenticated. */
+  user: PluginUser | null
+  /** Active locale code. */
+  locale: string
+  /**
+   * Access a running service from another installed plugin.
+   * Returns null when the service is not installed or not yet initialised.
+   */
+  service: (providerId: string) => unknown
+}
+
+/**
+ * Factory exported as the named `PluginService` export from an installable plugin bundle.
+ * Called once when the plugin is initialised on app start.
+ * The return value is registered under the plugin's `provides` identifier.
+ */
+export type PluginServiceFactory = (context: PluginServiceContext) => unknown
+
 // --- Plugin context ---
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -287,10 +358,23 @@ export interface PluginContext {
   showSafetyWarning: RobotHandle['showSafetyWarning']
 
   /**
+   * Forward and inverse kinematics for the active robot.
+   * FK is always available. IK requires a trained model (`ikModelUrl` on the robot config).
+   */
+  kinematics: KinematicsApi
+
+  /**
    * 3D robot visualization. The host injects the robot config automatically.
    * Use a React ref typed as WorldViewApi to call imperative methods.
    */
   WorldView: React.ForwardRefExoticComponent<PluginWorldViewProps & React.RefAttributes<WorldViewApi>>
+
+  /**
+   * Access a running service from another installed plugin by its `provides` identifier.
+   * Returns null when the service is not installed or not yet initialised.
+   * The calling plugin must declare the provider in its manifest `dependencies`.
+   */
+  service: (providerId: string) => unknown
 
   // --- Host services ---
 
