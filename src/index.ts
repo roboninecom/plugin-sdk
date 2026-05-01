@@ -366,6 +366,26 @@ export interface PluginServiceContext {
 
   /** Disable torque on all servos (arm goes limp). Requires robot.control scope. */
   stopRobot(role: ConnectionRole): Promise<void>
+
+  /**
+   * Move the robot end-effector to the given XYZ position (metres, URDF frame) using
+   * inverse kinematics. Requires robot.control scope and an IK model on the robot config.
+   * Throws when no robot is connected, IK is unavailable, or no solution is found.
+   */
+  moveToPosition(x: number, y: number, z: number, role?: ConnectionRole): Promise<void>
+
+  /**
+   * Move all servos to their neutral (home) positions. Requires robot.control scope.
+   * Throws when no robot is connected.
+   */
+  goHome(role?: ConnectionRole): Promise<void>
+
+  /**
+   * Execute a saved motion path once by replaying its waypoints to the robot.
+   * Requires robot.control scope and user.read scope.
+   * Throws when the path is not found or no robot is connected.
+   */
+  executePath(id: string, role?: ConnectionRole): Promise<void>
 }
 
 /**
