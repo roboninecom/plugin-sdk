@@ -31,6 +31,8 @@ export type PluginScope =
   | 'user.auth'
   /** Read basic user profile (name, email). */
   | 'user.profile'
+  /** Read the user's robots and motion paths via listUserRobots(), listUserPaths(), and readPath(). */
+  | 'user.read'
 
 /**
  * Named connection slot. 'default' is always the primary (follower) arm.
@@ -300,6 +302,38 @@ export interface KinematicsApi {
   inverseKinematics(targetPosition: [number, number, number], currentAngles?: Record<string, number>): Promise<Record<string, number> | null>
 }
 
+// --- Plugin service data types ---
+
+export interface PluginUserRobot {
+  id: string
+  name: string
+  model: string
+  calibration: Record<string, unknown>
+  createdAt: string
+}
+
+export interface PluginPathSummary {
+  id: string
+  name: string
+  description: string | null
+  robotModel: string
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PluginPath extends PluginPathSummary {
+  points: Array<Record<string, number>>
+}
+
+export interface PluginConnectedRobot {
+  role: string
+  robotId: string | null
+  robotModel: string | null
+  virtual: boolean
+  remote: boolean
+}
+
 // --- Plugin service ---
 
 /**
@@ -307,8 +341,6 @@ export interface KinematicsApi {
  * Services run in the background and do not have access to UI or robot connections.
  */
 export interface PluginServiceContext {
-  /** Authenticated fetch. Pass a path starting with `/api/...`. */
-  apiFetch: (path: string, init?: RequestInit) => Promise<Response>
   /** Currently signed-in user, or null when not authenticated. */
   user: PluginUser | null
   /** Active locale code. */
@@ -318,6 +350,19 @@ export interface PluginServiceContext {
    * Returns null when the service is not installed or not yet initialised.
    */
   service: (providerId: string) => unknown
+  /** List all robots belonging to the current user. */
+  listUserRobots(): Promise<PluginUserRobot[]>
+  /** List all motion paths belonging to the current user (without waypoints). */
+  listUserPaths(): Promise<PluginPathSummary[]>
+  /** Read a motion path by ID. Returns null when not found or access denied. */
+  readPath(id: string): Promise<PluginPath | null>
+  /** List currently connected robot arms. Always reflects live connection state. */
+  listConnectedRobots(): PluginConnectedRobot[]
+  /**
+   * Read the current joint angles and end-effector position of a connected robot arm.
+   * Returns null when the role is not connected or the robot model is unknown.
+   */
+  getRobotPosition(role: ConnectionRole): Promise<{ joints: Record<string, number>; position: [number, number, number]; rotation: [[number, number, number], [number, number, number], [number, number, number]] } | null>
 }
 
 /**
