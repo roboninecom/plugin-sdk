@@ -363,12 +363,6 @@ export interface PluginServiceContext {
    * Returns null when the role is not connected or the robot model is unknown.
    */
   getRobotPosition(role: ConnectionRole): Promise<{ joints: Record<string, number>; position: [number, number, number]; rotation: [[number, number, number], [number, number, number], [number, number, number]] } | null>
-  /**
-   * Command joint positions by name. Requires robot.control scope.
-   * joints: URDF joint name → value (rad for revolute, m for prismatic).
-   * No-op when disconnected or emergency-stopped.
-   */
-  setRobotJoints(role: ConnectionRole, joints: Record<string, number>): Promise<void>
 
   /** Disable torque on all servos (arm goes limp). Requires robot.control scope. */
   stopRobot(role: ConnectionRole): Promise<void>
