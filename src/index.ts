@@ -291,8 +291,10 @@ export interface KinematicsApi {
    * Compute forward kinematics for the active robot.
    * `angles` maps URDF joint names to values (rad for revolute, m for prismatic).
    * Only joints present in the map are moved; others stay at 0.
+   * `linkName` overrides the default end-effector link — pass any URDF link name
+   * to get the world-frame pose of that specific link (e.g. `'camera_virtual'`).
    */
-  forwardKinematics(angles: Record<string, number>): Promise<FKResult>
+  forwardKinematics(angles: Record<string, number>, linkName?: string): Promise<FKResult>
 
   /**
    * Solve inverse kinematics for the given target position (metres, URDF frame).
