@@ -82,6 +82,19 @@ export interface CalibrationData {
   motors: Record<number, JointCalibration>
 }
 
+export interface CameraCalibrationData {
+  model: 'standard' | 'wide-angle'
+  fx: number
+  fy: number
+  cx: number
+  cy: number
+  distCoeffs: number[]
+  imageWidth: number
+  imageHeight: number
+  reprojectionError: number
+  capturedAt: string
+}
+
 // --- WorldView ---
 
 export interface JointInfo {
@@ -271,6 +284,13 @@ export interface RobotHandle {
   saveRangeCalibration: (motors: Record<number, JointCalibration>) => Promise<void>
 
   /**
+   * Persist camera intrinsics to the connected robot's calibration record.
+   * Merges with existing calibration — motor data is preserved.
+   * Requires the `robot.calibration` scope.
+   */
+  saveCameraCalibration: (data: CameraCalibrationData) => Promise<void>
+
+  /**
    * Show the standard safety-check dialog.
    * Resolves to true when the user confirms, false when cancelled.
    */
@@ -412,8 +432,9 @@ export interface PluginContext {
    *   prompts for both connections before loading the plugin when this scope is declared.
    *
    * The top-level `connection`, `servo`, `robotConfig`, `openConnectDialog`,
-   * `saveCalibration`, `saveRangeCalibration`, and `showSafetyWarning` fields are
-   * shorthands for `robot('default')` and are kept for single-arm plugin convenience.
+   * `saveCalibration`, `saveRangeCalibration`, `saveCameraCalibration`, and
+   * `showSafetyWarning` fields are shorthands for `robot('default')` and are kept
+   * for single-arm plugin convenience.
    */
   robot: (role: ConnectionRole) => RobotHandle
 
@@ -425,6 +446,7 @@ export interface PluginContext {
   robotConfig: RobotHandle['robotConfig']
   saveCalibration: RobotHandle['saveCalibration']
   saveRangeCalibration: RobotHandle['saveRangeCalibration']
+  saveCameraCalibration: RobotHandle['saveCameraCalibration']
   showSafetyWarning: RobotHandle['showSafetyWarning']
 
   /**
@@ -450,12 +472,6 @@ export interface PluginContext {
 
   /** Navigate to a host URL (wraps React Router navigate). */
   navigate: (url: string) => void
-
-  /**
-   * Authenticated fetch. Pass a path starting with `/api/...`; the host
-   * prepends the API base URL and handles 502 / non-JSON error toasts.
-   */
-  apiFetch: (path: string, init?: RequestInit) => Promise<Response>
 
   /** Currently signed-in user, or null when not authenticated. */
   user: PluginUser | null
