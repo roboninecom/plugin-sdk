@@ -274,6 +274,12 @@ export interface RobotHandle {
    */
   robotConfig: PluginRobotConfig | null
 
+  /**
+   * Camera calibration saved for the connected robot, or null when none has been saved.
+   * Requires the `robot.read` scope.
+   */
+  cameraCalibration: CameraCalibrationData | null
+
   /** Persist neutral-position calibration data for the connected robot. */
   saveCalibration: (data: CalibrationData) => Promise<void>
 
@@ -444,6 +450,7 @@ export interface PluginContext {
   openConnectDialog: RobotHandle['openConnectDialog']
   servo: RobotHandle['servo']
   robotConfig: RobotHandle['robotConfig']
+  cameraCalibration: RobotHandle['cameraCalibration']
   saveCalibration: RobotHandle['saveCalibration']
   saveRangeCalibration: RobotHandle['saveRangeCalibration']
   saveCameraCalibration: RobotHandle['saveCameraCalibration']
