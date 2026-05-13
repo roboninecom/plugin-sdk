@@ -249,6 +249,12 @@ export interface RobotHandle {
 
     // robot.calibration --------------------------------------------------------
 
+    /**
+     * Write `data` bytes to register `addr` on a servo.
+     * For EEPROM registers (addr < 40) the plugin is responsible for unlocking
+     * the Lock register (addr 55) before writing and re-locking it afterwards.
+     */
+    writeRegisters: (id: number, addr: number, data: number[]) => Promise<void>
     /** Enable or disable torque on a single servo. */
     setTorque: (id: number, enabled: boolean) => Promise<void>
     /** Broadcast torque-disable to all servos on the bus. */
