@@ -93,6 +93,9 @@ export interface CameraCalibrationData {
   imageHeight: number
   reprojectionError: number
   capturedAt: string
+  cameraName?: string
+  mirrorH?: boolean
+  mirrorV?: boolean
 }
 
 // --- WorldView ---
@@ -122,6 +125,7 @@ export interface WorldViewApi {
   setLinkHighlight(highlightLinkNames: string[], foreground: number, background: number): void
   getJointWorldPosition(name: string): Vector3 | null
   getJointWorldAxis(name: string): Vector3 | null
+  getWorldPositionInLink(linkName: string, localX: number, localY: number, localZ: number): Vector3 | null
 }
 
 /**
@@ -137,12 +141,37 @@ export interface PluginWorldViewProps {
   onTargetMove?: (pos: [number, number, number]) => void
   showTargetSphere?: boolean
   targetPosition?: [number, number, number]
+  targetSphereRadius?: number
   trackLivePosition?: boolean
   /** Auto-solve IK when the target sphere is dragged. Requires a trained IK model on the robot config. */
   autoSolveIK?: boolean
+  /** Show a semi-transparent camera frustum. WorldView auto-updates it from joint FK whenever joints change. */
+  showCameraFrustum?: boolean
+  /** Camera calibration data used to derive frustum FOV. When provided with showCameraFrustum, the frustum is shown with accurate field-of-view. */
+  cameraCalibration?: CameraCalibrationData | null
 }
 
 // --- UI component props ---
+
+export interface CameraViewHandle {
+  video: HTMLVideoElement | null
+  canvas: HTMLCanvasElement | null
+  mirrorH: boolean
+  mirrorV: boolean
+  captureFrame(): ImageData | null
+}
+
+export interface CameraViewProps {
+  stream?: MediaStream | null
+  className?: string
+  cursor?: string
+  onMouseMove?: React.MouseEventHandler<HTMLDivElement>
+  onMouseLeave?: React.MouseEventHandler<HTMLDivElement>
+  onClick?: React.MouseEventHandler<HTMLDivElement>
+  children?: React.ReactNode
+  noCamera?: React.ReactNode
+  canvasMode?: boolean
+}
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   asChild?: boolean
@@ -500,6 +529,7 @@ export interface PluginContext {
 
   /** Subset of the host UI component library. */
   ui: {
+    CameraView: React.ForwardRefExoticComponent<CameraViewProps & React.RefAttributes<CameraViewHandle>>
     Button: React.ComponentType<ButtonProps>
     Card: React.ComponentType<CardProps>
     Input: React.ComponentType<InputProps>
