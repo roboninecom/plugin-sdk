@@ -27,6 +27,12 @@ export type PluginScope =
   | 'robot.local'
   /** Read raw servo positions and registers. */
   | 'robot.read'
+  /**
+   * Require a saved robot profile ("My robots") rather than a generic model type.
+   * Use when the plugin must persist data to a specific physical robot (e.g. calibration).
+   * The generic "Models" option is hidden in the connect dialog when this scope is declared.
+   */
+  | 'robot.saved'
   /** Require the user to be signed in before the plugin loads. */
   | 'user.auth'
   /** Read basic user profile (name, email). */
