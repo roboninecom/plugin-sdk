@@ -187,6 +187,15 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>
 
+export interface CheckboxProps {
+  checked?: boolean
+  defaultChecked?: boolean
+  onCheckedChange?: (checked: boolean) => void
+  disabled?: boolean
+  className?: string
+  id?: string
+}
+
 export type CardProps = React.HTMLAttributes<HTMLDivElement>
 
 // --- Robot config subset exposed to plugins ---
@@ -203,6 +212,8 @@ export interface PluginRobotConfig {
   jointToEncoder: (id: number, value: number) => number
   /** Get the neutral URDF joint value for a servo. */
   neutralJointValue: (id: number) => number
+  /** Force/load sensors attached to the robot bus. Empty when the model has none. */
+  forceSensors: Array<{ id: number; label: string; max?: number }>
 }
 
 // --- Camera ---
@@ -259,8 +270,16 @@ export interface RobotHandle {
     /**
      * Read all joint positions in URDF units (rad for revolute, m for prismatic).
      * Values are ordered by servo ID ascending. Returns null when disconnected.
+     * Motors that fail to respond are silently replaced with their neutral value.
      */
     readJointPositions: () => Promise<null | number[]>
+    /**
+     * Like readJointPositions, but exposes per-motor failure.
+     * Each entry carries the joint name and its URDF value, or value: null when the motor
+     * did not respond. Outer null means the robot is disconnected.
+     * Values are ordered by servo ID ascending.
+     */
+    readJointPositionsStatus: () => Promise<Array<{ name: string; value: number | null }> | null>
 
     // robot.control ------------------------------------------------------------
 
@@ -538,6 +557,7 @@ export interface PluginContext {
     CameraView: React.ForwardRefExoticComponent<CameraViewProps & React.RefAttributes<CameraViewHandle>>
     Button: React.ComponentType<ButtonProps>
     Card: React.ComponentType<CardProps>
+    Checkbox: React.ComponentType<CheckboxProps>
     Input: React.ComponentType<InputProps>
     Dialog: AnyComponent
     DialogContent: AnyComponent
