@@ -4,6 +4,54 @@ This repository contains the TypeScript type definitions and tooling for buildin
 
 Plugins are React components that run inside the platform and get direct access to the robot. You write a component, declare what hardware capabilities you need, zip the source files, and submit for review. Once approved, your plugin appears in the marketplace for all users.
 
+## Quick start
+
+**1. Copy the sample plugin.**
+
+```
+cp -r sample-plugin my-plugin
+cd my-plugin
+```
+
+**2. Install type dependencies** (for editor support and type checking — not needed at runtime).
+
+```
+npm install
+```
+
+Add a `package.json` that points at the SDK:
+
+```json
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@robonine/plugin-sdk": "file:../",
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
+```
+
+**3. Edit `src/manifest.ts`** — set your `vendor` (a lowercase URL-safe name for you or your organisation), `slug` (unique plugin name), human-readable `name`, `description`, and the `scopes` your plugin needs.
+
+**4. Write your component in `src/plugin.tsx`.** Export a `PluginRoot` function that accepts `{ context: PluginContext }`. Use `context.ui.*` for platform-styled UI components and the `context.servo.*` APIs for robot control (see [PluginContext](#plugincontext) below).
+
+**5. Test locally.** Zip the contents of `src/` (files at the root, no `src/` prefix):
+
+```
+(cd src && zip -r ../my-plugin.robo9 .)
+```
+
+Open the [Tools page](https://robonine.com/tools), click **Load locally…**, and select the file. Your plugin loads immediately — no account required, though some APIs (e.g. those requiring the `user.auth` scope) will need a sign-in regardless.
+
+**6. Submit.** When the plugin is ready, open Tools → **Submit for review**. Attach the same `.robo9` file. The team will review the source and publish it to the marketplace once approved.
+
+---
+
 ## How plugins work
 
 A plugin is a small bundle of TypeScript/React source files. The platform compiles and loads it at runtime. Your component receives a `context` object — that is the entire API surface. There is no access to internal platform state outside of it.
@@ -100,6 +148,8 @@ const t = useMemo(
 ## Example plugin
 
 A complete minimal plugin lives in [`sample-plugin/`](./sample-plugin/). It has no hardware scopes — it is UI-only and demonstrates the standard file structure and the connected/disconnected state pattern.
+
+For real-world examples, see the [official Robonine plugins](https://github.com/roboninecom/lab-plugins).
 
 ### sample-plugin/src/manifest.ts
 
