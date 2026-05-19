@@ -1,5 +1,11 @@
 # Robonine Plugin SDK
 
+<div align="center">
+
+**English | [中文](README.zh-CN.md) | [Русский](README.ru.md)**
+
+</div>
+
 This repository contains the TypeScript type definitions and tooling for building plugins for the [Robonine](https://robonine.com) educational robotics platform.
 
 Plugins are React components that run inside the platform and get direct access to the robot. You write a component, declare what hardware capabilities you need, zip the source files, and submit for review. Once approved, your plugin appears in the marketplace for all users.
@@ -76,8 +82,8 @@ export const manifest: PluginManifest = {
   sdkVersion: '1',
   vendor: 'your-name',       // lowercase, URL-safe — your unique namespace
   slug: 'my-plugin',         // lowercase, URL-safe — unique within your namespace
-  name: { en: 'My plugin', ru: 'Мой плагин' },
-  description: { en: 'What it does.', ru: 'Что делает.' },
+  name: { en: 'My plugin', ru: 'Мой плагин', zh: '我的插件' },
+  description: { en: 'What it does.', ru: 'Что делает.', zh: '功能描述。' },
   icon: 'Wrench',            // Lucide icon name or inline SVG string
   scopes: ['robot.control'], // capabilities the plugin needs (see Scopes below)
 }
@@ -96,10 +102,12 @@ Scopes are capability declarations. The platform enforces them: undeclared APIs 
 | `robot.config` | Write low-level servo config (e.g. servo IDs) — destructive, requires one servo on bus |
 | `robot.leader` | A second independent robot connection (leader arm in dual-arm setups) |
 | `robot.local` | Requires physical presence — disables WebRTC transport in the connect dialog |
+| `robot.saved` | Require a saved robot profile rather than a generic model; hides the generic "Models" option in the connect dialog |
 | `camera.read` | Access the camera feed |
 | `install` | Makes the plugin installable; allows exporting a background service via `PluginService` |
 | `user.auth` | Require the user to be signed in |
 | `user.profile` | Read the user's name and email |
+| `user.read` | Read the user's saved robots and motion paths via `listUserRobots()`, `listUserPaths()`, and `readPath()` |
 
 ### PluginContext
 
@@ -133,6 +141,7 @@ Keep your localised strings in a `translations.ts` file and resolve the right lo
 export const translations = {
   en: { title: 'My plugin', … },
   ru: { title: 'Мой плагин', … },
+  zh: { title: '我的插件', … },
 } satisfies Record<string, Record<string, string>>
 ```
 
@@ -160,10 +169,11 @@ export const manifest: PluginManifest = {
   sdkVersion: '1',
   vendor: 'your-name',
   slug: 'hello-robot',
-  name: { en: 'Hello robot', ru: 'Привет, робот' },
+  name: { en: 'Hello robot', ru: 'Привет, робот', zh: '你好，机器人' },
   description: {
     en: 'A minimal example plugin that greets your robot.',
     ru: 'Минимальный пример плагина, который приветствует вашего робота.',
+    zh: '一个向机器人打招呼的最小示例插件。',
   },
   icon: 'Bot',
   scopes: [],
@@ -185,6 +195,12 @@ export const translations = {
     connectPrompt: 'Подключите робота, чтобы начать.',
     connectButton: 'Подключить робота',
     greeting: 'Привет! Ваш робот подключён и готов к работе.',
+  },
+  zh: {
+    title: '你好，机器人',
+    connectPrompt: '连接机器人以开始使用。',
+    connectButton: '连接机器人',
+    greeting: '你好！机器人已连接并准备就绪。',
   },
 } satisfies Record<string, Record<string, string>>
 ```
