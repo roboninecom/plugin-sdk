@@ -239,6 +239,14 @@ export interface SceneObject {
   box: { x_min: number; y_min: number; x_max: number; y_max: number }
 }
 
+export interface SceneExtractionResult {
+  objects: SceneObject[]
+  /** Width of the image that was analysed, in pixels. */
+  imageWidth: number
+  /** Height of the image that was analysed, in pixels. */
+  imageHeight: number
+}
+
 export interface PluginRobotModel {
   id: string
   label: string
@@ -462,11 +470,12 @@ export interface PluginServiceContext {
 
   /**
    * Detect all objects in an image using the Gemini vision model.
-   * Pass a base64-encoded image string and its MIME type.
-   * Returns an array of detected objects with pixel-space bounding boxes.
+   * The host handles resizing and encoding before sending to the backend.
+   * Returns detected objects with pixel-space bounding boxes and the image dimensions
+   * that were used, so callers can compute normalised positions.
    * Requires the `user.auth` scope (the user must be signed in).
    */
-  extractSceneObjects(imageBase64: string, mimeType?: string): Promise<SceneObject[]>
+  extractSceneObjects(imageData: ImageData): Promise<SceneExtractionResult>
 
   /**
    * Move the robot end-effector to the given XYZ position (metres, URDF frame) using
@@ -561,11 +570,12 @@ export interface PluginContext {
 
   /**
    * Detect all objects in a camera frame using the Gemini vision model.
-   * Pass a base64-encoded image string and its MIME type.
-   * Returns an array of detected objects with pixel-space bounding boxes.
+   * The host handles resizing and encoding before sending to the backend.
+   * Returns detected objects with pixel-space bounding boxes and the image dimensions
+   * that were used, so callers can compute normalised positions.
    * Requires the `user.auth` scope (the user must be signed in).
    */
-  extractSceneObjects(imageBase64: string, mimeType?: string): Promise<SceneObject[]>
+  extractSceneObjects(imageData: ImageData): Promise<SceneExtractionResult>
 
   /** Show brief toast notifications. */
   toast: {
