@@ -234,6 +234,11 @@ export interface PluginUser {
   role: number
 }
 
+export interface SceneObject {
+  label: string
+  box: { x_min: number; y_min: number; x_max: number; y_max: number }
+}
+
 export interface PluginRobotModel {
   id: string
   label: string
@@ -456,6 +461,14 @@ export interface PluginServiceContext {
   stopRobot(role: ConnectionRole): Promise<void>
 
   /**
+   * Detect all objects in an image using the Gemini vision model.
+   * Pass a base64-encoded image string and its MIME type.
+   * Returns an array of detected objects with pixel-space bounding boxes.
+   * Requires the `user.auth` scope (the user must be signed in).
+   */
+  extractSceneObjects(imageBase64: string, mimeType?: string): Promise<SceneObject[]>
+
+  /**
    * Move the robot end-effector to the given XYZ position (metres, URDF frame) using
    * inverse kinematics. Requires robot.control scope and an IK model on the robot config.
    * Throws when no robot is connected, IK is unavailable, or no solution is found.
@@ -545,6 +558,14 @@ export interface PluginContext {
 
   /** Available robot models. */
   robotModels: PluginRobotModel[]
+
+  /**
+   * Detect all objects in a camera frame using the Gemini vision model.
+   * Pass a base64-encoded image string and its MIME type.
+   * Returns an array of detected objects with pixel-space bounding boxes.
+   * Requires the `user.auth` scope (the user must be signed in).
+   */
+  extractSceneObjects(imageBase64: string, mimeType?: string): Promise<SceneObject[]>
 
   /** Show brief toast notifications. */
   toast: {
