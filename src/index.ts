@@ -435,6 +435,94 @@ export interface PluginConnectedRobot {
   remote: boolean
 }
 
+// --- Action atoms (high-level manipulation primitives) ---
+
+/** Approach direction hint for pre-grip positioning. */
+export type GraspApproach = 'auto' | 'side' | 'top'
+
+export interface PregripParams {
+  /** Target object X position (metres, URDF world frame). */
+  x: number
+  /** Target object Y position (metres, URDF world frame). */
+  y: number
+  /** Target object Z position (metres, URDF world frame). */
+  z: number
+  /**
+   * Approach direction. 'top' stands off above the object (+Z), 'side' stands off
+   * behind it (−X), 'auto' picks top for low objects and side for tall ones.
+   * Defaults to 'auto'.
+   */
+  approach?: GraspApproach
+  /** Standoff distance from the object, in metres. Defaults to 0.05. */
+  clearance?: number
+  role?: ConnectionRole
+}
+
+export interface GripParams {
+  /**
+   * Target close amount, 0 (barely closed) … 1 (fully closed). Acts as a soft
+   * upper bound — closing stops early when the force sensor detects contact.
+   * Defaults to 1.
+   */
+  force?: number
+  /**
+   * Raw force-sensor reading above which contact is assumed and closing stops.
+   * Ignored on robots without a force sensor. Defaults to 500.
+   */
+  contactThreshold?: number
+  role?: ConnectionRole
+}
+
+export interface GripResult {
+  /** True when the gripper closed onto something (force contact detected, or fully closed on a robot with no sensor). */
+  gripped: boolean
+  /** Final raw force-sensor reading, or null when the robot has no force sensor. */
+  force: number | null
+  /** Final close amount, 0 (open) … 1 (closed). */
+  position: number
+}
+
+export interface MoveParams {
+  /** Target X position (metres, URDF world frame). */
+  x: number
+  /** Target Y position (metres, URDF world frame). */
+  y: number
+  /** Target Z position (metres, URDF world frame). */
+  z: number
+  role?: ConnectionRole
+}
+
+export interface LiftParams {
+  /** Vertical distance to raise the end-effector, in metres. Defaults to 0.05. */
+  height?: number
+  role?: ConnectionRole
+}
+
+export interface ReleaseParams {
+  /** Open amount, 0 (stay closed) … 1 (fully open). Defaults to 1. */
+  open?: number
+  role?: ConnectionRole
+}
+
+/**
+ * High-level manipulation primitives ("action atoms") layered on top of the
+ * low-level servo and IK APIs. Each atom is one self-contained step of a
+ * pick-and-place sequence: pregrip → grip → lift → move → release.
+ * All atoms require the `robot.control` scope and throw when no robot is connected.
+ */
+export interface ActionAtomsApi {
+  /** Open the gripper and move the end-effector to a standoff pose near the target object. */
+  pregrip(params: PregripParams): Promise<void>
+  /** Close the gripper onto an object, stopping early when the force sensor detects contact. */
+  grip(params?: GripParams): Promise<GripResult>
+  /** Move the end-effector to an XYZ position via inverse kinematics. */
+  move(params: MoveParams): Promise<void>
+  /** Raise the end-effector straight up to clear the surface, keeping XY fixed. */
+  lift(params?: LiftParams): Promise<void>
+  /** Open the gripper to release the held object. */
+  release(params?: ReleaseParams): Promise<void>
+}
+
 // --- Plugin service ---
 
 /**
@@ -496,6 +584,13 @@ export interface PluginServiceContext {
    * Throws when the path is not found or no robot is connected.
    */
   executePath(id: string, role?: ConnectionRole): Promise<void>
+
+  /**
+   * High-level manipulation primitives (pregrip, grip, lift, move, release) for
+   * building pick-and-place sequences without driving servos directly.
+   * Requires the `robot.control` scope.
+   */
+  actions: ActionAtomsApi
 }
 
 /**
