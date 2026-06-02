@@ -113,6 +113,8 @@ export interface JointInfo {
   type: string
   lower: number
   upper: number
+  /** The URDF child link name for this joint — use as endEffectorLink in inverseKinematics. */
+  childLink: string
 }
 
 /** Plain 3D vector. At runtime the host may return THREE.Vector3, which satisfies this structurally. */
@@ -149,7 +151,7 @@ export interface PluginWorldViewProps {
   targetPosition?: [number, number, number]
   targetSphereRadius?: number
   trackLivePosition?: boolean
-  /** Auto-solve IK when the target sphere is dragged. Requires a trained IK model on the robot config. */
+  /** Auto-solve IK when the target sphere is dragged. */
   autoSolveIK?: boolean
   /** Show a semi-transparent camera frustum. WorldView auto-updates it from joint FK whenever joints change. */
   showCameraFrustum?: boolean
@@ -214,6 +216,8 @@ export interface PluginRobotConfig {
   neutralJointValue: (id: number) => number
   /** Force/load sensors attached to the robot bus. Empty when the model has none. */
   forceSensors: Array<{ id: number; label: string; max?: number }>
+  /** Additional named links exposed for FK position queries and as IK target candidates. */
+  fkNodes: Array<{ linkName: string; label: Record<string, string>; offset?: [number, number, number] }>
 }
 
 // --- Camera ---
@@ -398,9 +402,29 @@ export interface KinematicsApi {
   /**
    * Solve inverse kinematics for the given target position (metres, URDF frame).
    * `currentAngles` seeds the solver; defaults to all-zero if omitted.
-   * Returns null when no IK model is available for the active robot.
+   * Returns null when the target is unreachable.
    */
-  inverseKinematics(targetPosition: [number, number, number], currentAngles?: Record<string, number>): Promise<Record<string, number> | null>
+  inverseKinematics(
+    targetPosition: [number, number, number],
+    currentAngles?: Record<string, number>,
+    options?: {
+      /**
+       * Use Jacobian (DLS) refinement starting from currentAngles instead of the
+       * closed-form geometric solver. Stays on the same IK branch — use for
+       * incremental control (sliders) where posture continuity matters.
+       */
+      continuousMode?: boolean
+      /**
+       * When set with tipOffset, the target is the physical gripper tip rather than the
+       * wrist. The solver iterates FK→error correction so the tip lands exactly at target
+       * regardless of arm rotation.
+       */
+      tipLink?: string
+      tipOffset?: [number, number, number]
+      /** Override which URDF link the solver targets. Defaults to the robot's gripperTipLink. */
+      endEffectorLink?: string
+    },
+  ): Promise<Record<string, number> | null>
 }
 
 // --- Plugin service data types ---
@@ -567,8 +591,8 @@ export interface PluginServiceContext {
 
   /**
    * Move the robot end-effector to the given XYZ position (metres, URDF frame) using
-   * inverse kinematics. Requires robot.control scope and an IK model on the robot config.
-   * Throws when no robot is connected, IK is unavailable, or no solution is found.
+   * inverse kinematics. Requires robot.control scope.
+   * Throws when no robot is connected or no IK solution is found.
    */
   moveToPosition(x: number, y: number, z: number, role?: ConnectionRole): Promise<void>
 
@@ -633,10 +657,7 @@ export interface PluginContext {
   saveCameraCalibration: RobotHandle['saveCameraCalibration']
   showSafetyWarning: RobotHandle['showSafetyWarning']
 
-  /**
-   * Forward and inverse kinematics for the active robot.
-   * FK is always available. IK requires a trained model (`ikModelUrl` on the robot config).
-   */
+  /** Forward and inverse kinematics for the active robot. */
   kinematics: KinematicsApi
 
   /**
@@ -699,6 +720,10 @@ export interface PluginContext {
     TableHead: AnyComponent
     TableHeader: AnyComponent
     TableRow: AnyComponent
+    Tabs: AnyComponent
+    TabsList: AnyComponent
+    TabsTrigger: AnyComponent
+    TabsContent: AnyComponent
     Tooltip: AnyComponent
     TooltipContent: AnyComponent
     TooltipProvider: AnyComponent
